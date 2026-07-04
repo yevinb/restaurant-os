@@ -47,7 +47,9 @@ const AI_COLORS: Record<AiProvider, string> = {
 export default function AssistantPage() {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["assistant"],
@@ -79,6 +81,7 @@ export default function AssistantPage() {
       return res.data;
     },
     onSuccess: () => {
+      shouldAutoScrollRef.current = true;
       queryClient.invalidateQueries({ queryKey: ["assistant"] });
       setInput("");
     },
@@ -94,9 +97,35 @@ export default function AssistantPage() {
     },
   });
 
+  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  }
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [data?.messages, sendMutation.isPending]);
+    if (!shouldAutoScrollRef.current) return;
+
+    const count = messages.length;
+    const newMessages = count > prevMessageCountRef.current;
+    prevMessageCountRef.current = count;
+
+    if (newMessages || sendMutation.isPending) {
+      requestAnimationFrame(() => scrollToBottom());
+    }
+  }, [messages.length, sendMutation.isPending]);
+
+  function sendMessage(message: string) {
+    shouldAutoScrollRef.current = true;
+    sendMutation.mutate(message);
+  }
 
   if (isLoading && !data) {
     return (
@@ -115,8 +144,8 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
-      <div className="mb-4">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col min-h-0 sm:h-[calc(100dvh-8rem)]">
+      <div className="mb-4 shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-zinc-900">AI Assistant</h1>
@@ -150,7 +179,7 @@ export default function AssistantPage() {
       </div>
 
       {!aiConfigured && (
-        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-4 shrink-0 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">Enable full AI (free)</p>
@@ -164,9 +193,14 @@ export default function AssistantPage() {
         </div>
       )}
 
-      <Card className="flex flex-1 flex-col overflow-hidden">
-        <CardContent className="flex flex-1 flex-col p-0">
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
             {messages.length === 0 && (
               <div className="text-center py-8 sm:py-12">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100">
@@ -184,7 +218,7 @@ export default function AssistantPage() {
                     <button
                       key={s}
                       type="button"
-                      onClick={() => sendMutation.mutate(s)}
+                      onClick={() => sendMessage(s)}
                       disabled={sendMutation.isPending}
                       className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 transition-colors text-left"
                     >
@@ -226,17 +260,16 @@ export default function AssistantPage() {
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (input.trim() && !sendMutation.isPending) {
-                sendMutation.mutate(input.trim());
+                sendMessage(input.trim());
               }
             }}
-            className="flex gap-2 border-t border-zinc-100 p-3 sm:p-4"
+            className="flex shrink-0 gap-2 border-t border-zinc-100 p-3 sm:p-4"
           >
             <Input
               value={input}
