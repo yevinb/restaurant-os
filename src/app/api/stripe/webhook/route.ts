@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
-import { stripe, getPlanFromPriceId } from "@/lib/stripe";
+import { getStripe, getPlanFromPriceId } from "@/lib/stripe";
 import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       const plan = session.metadata?.plan as SubscriptionPlan;
 
       if (restaurantId && session.subscription) {
-        const sub = await stripe.subscriptions.retrieve(
+        const sub = await getStripe().subscriptions.retrieve(
           session.subscription as string
         );
         await prisma.subscription.update({

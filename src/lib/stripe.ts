@@ -1,10 +1,26 @@
 import Stripe from "stripe";
 import { PLANS } from "./plans";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2026-06-24.dahlia",
-  typescript: true,
-});
+let stripeClient: Stripe | null = null;
+
+export function isStripeConfigured() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  return Boolean(key && key !== "sk_test_placeholder");
+}
+
+export function getStripe(): Stripe {
+  if (!stripeClient) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || key === "sk_test_placeholder") {
+      throw new Error("Stripe is not configured");
+    }
+    stripeClient = new Stripe(key, {
+      apiVersion: "2026-06-24.dahlia",
+      typescript: true,
+    });
+  }
+  return stripeClient;
+}
 
 export function getPlanFromPriceId(priceId: string) {
   for (const [key, plan] of Object.entries(PLANS)) {

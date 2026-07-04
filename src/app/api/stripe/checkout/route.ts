@@ -1,6 +1,6 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { requireRole } from "@/lib/tenant";
 import { SubscriptionPlan } from "@prisma/client";
@@ -65,7 +65,7 @@ export const POST = withTenant(async (req, ctx) => {
   let customerId = subscription.stripeCustomerId;
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: ctx.session.user?.email || undefined,
       name: ctx.restaurant.name,
       metadata: { restaurantId: ctx.restaurantId },
@@ -77,7 +77,7 @@ export const POST = withTenant(async (req, ctx) => {
     });
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],

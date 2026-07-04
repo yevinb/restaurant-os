@@ -1,6 +1,6 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { requireRole } from "@/lib/tenant";
 
 const isLocalBilling =
@@ -31,7 +31,7 @@ export const POST = withTenant(async (_req, ctx) => {
     return json({ error: "No billing account found" }, 400);
   }
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: subscription.stripeCustomerId,
     return_url: `${process.env.NEXTAUTH_URL}/dashboard/billing`,
   });
