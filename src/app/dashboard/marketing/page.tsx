@@ -22,6 +22,7 @@ import {
   Trash2,
   Pencil,
   LayoutTemplate,
+  Send,
 } from "lucide-react";
 
 type Template = {
@@ -55,6 +56,9 @@ export default function MarketingPage() {
     body: "",
     segment: "INACTIVE",
   });
+  const [quickSendingSegment, setQuickSendingSegment] = useState<string | null>(
+    null
+  );
   const [automationForm, setAutomationForm] = useState({
     name: "",
     triggerDays: 30,
@@ -112,14 +116,25 @@ export default function MarketingPage() {
       return res.data;
     },
     onSuccess: (data) => {
-      const d = data as { subject: string; body: string; campaignName: string };
+      const d = data as {
+        subject: string;
+        body: string;
+        campaignName: string;
+        source?: string;
+      };
       setForm({
         ...form,
         name: d.campaignName,
         subject: d.subject,
         body: d.body,
       });
-      toast("AI campaign copy generated");
+      if (d.source === "template") {
+        toast(
+          "Campaign copy ready (template). Add GROQ_API_KEY for custom AI writing."
+        );
+      } else {
+        toast(`AI campaign copy generated (${d.source ?? "AI"})`);
+      }
     },
     onError: (err: Error) => toast(err.message, "error"),
   });
@@ -140,6 +155,34 @@ export default function MarketingPage() {
       toast("Automation rule created");
     },
     onError: (err: Error) => toast(err.message, "error"),
+  });
+
+  const quickSendMutation = useMutation({
+    mutationFn: async (segment: string) => {
+      setQuickSendingSegment(segment);
+      const res = await fetchJson("/api/marketing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "quickSend", segment }),
+      });
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["marketing"] });
+      const d = data as {
+        emailsSent?: number;
+        emailsSkipped?: number;
+        templateName?: string;
+      };
+      toast(
+        `${d.templateName ?? "Campaign"} sent to ${d.emailsSent ?? 0} customer(s)${
+          d.emailsSkipped ? ` (${d.emailsSkipped} skipped — no email)` : ""
+        }`
+      );
+    },
+    onError: (err: Error) => toast(err.message, "error"),
+    onSettled: () => setQuickSendingSegment(null),
   });
 
   const updateAutomation = useMutation({
@@ -205,6 +248,13 @@ export default function MarketingPage() {
     emailLogs = [],
     emailConfigured = false,
   } = data || {};
+
+  const QUICK_SEND_LABELS: Record<string, string> = {
+    VIP: "Send VIP thank-you",
+    INACTIVE: "Send win-back email",
+    HIGH_SPENDERS: "Send exclusive invite",
+    ALL: "Email all customers",
+  };
 
   const segmentCards = [
     {
@@ -285,34 +335,70 @@ export default function MarketingPage() {
 
       {/* Segment analytics */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {segmentCards.map((s) => (
-          <button
-            key={s.segment}
-            type="button"
-            onClick={() => setForm((f) => ({ ...f, segment: s.segment }))}
-            className={`rounded-xl border p-5 text-left transition-all hover:shadow-md ${
-              form.segment === s.segment
-                ? "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900"
-                : "border-zinc-200 bg-white"
-            }`}
-          >
-            <Megaphone className="h-5 w-5 text-zinc-400" />
-            <p className="mt-3 font-medium">{s.label}</p>
-            <p className="text-xs text-zinc-500">{s.desc}</p>
-            {s.stats && (
-              <div className="mt-3 flex gap-3 text-xs">
-                <span className="flex items-center gap-1 text-zinc-600">
-                  <Users className="h-3 w-3" />
-                  {s.stats.total} total
-                </span>
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <Mail className="h-3 w-3" />
-                  {s.stats.reachable} reachable
-                </span>
+        {segmentCards.map((s) => {
+          const reachable = s.stats?.reachable ?? 0;
+          const isSelected = form.segment === s.segment;
+          return (
+            <div
+              key={s.segment}
+              className={`rounded-xl border bg-white transition-all ${
+                isSelected
+                  ? "border-zinc-900 ring-1 ring-zinc-900"
+                  : "border-zinc-200"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, segment: s.segment }))}
+                className="w-full p-5 pb-3 text-left hover:bg-zinc-50 rounded-t-xl"
+              >
+                <Megaphone className="h-5 w-5 text-zinc-400" />
+                <p className="mt-3 font-medium">{s.label}</p>
+                <p className="text-xs text-zinc-500">{s.desc}</p>
+                {s.stats && (
+                  <div className="mt-3 flex gap-3 text-xs">
+                    <span className="flex items-center gap-1 text-zinc-600">
+                      <Users className="h-3 w-3" />
+                      {s.stats.total} total
+                    </span>
+                    <span className="flex items-center gap-1 text-emerald-600">
+                      <Mail className="h-3 w-3" />
+                      {reachable} reachable
+                    </span>
+                  </div>
+                )}
+              </button>
+              <div className="border-t border-zinc-100 px-5 py-3">
+                {reachable > 0 ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={s.segment === "INACTIVE" ? "primary" : "outline"}
+                    className="w-full"
+                    loading={quickSendingSegment === s.segment}
+                    onClick={() => {
+                      const label = QUICK_SEND_LABELS[s.segment] ?? "Send email";
+                      if (
+                        window.confirm(
+                          `${label} to ${reachable} customer(s) with email addresses?`
+                        )
+                      ) {
+                        quickSendMutation.mutate(s.segment);
+                      }
+                    }}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {QUICK_SEND_LABELS[s.segment] ?? "Send email"}
+                  </Button>
+                ) : (
+                  <p className="text-center text-xs text-zinc-400">
+                    Add customer emails in CRM to send
+                  </p>
+                )}
               </div>
-            )}
-          </button>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">

@@ -1,14 +1,3 @@
-export function personalize(text: string, firstName: string) {
-  return text.replace(/\{name\}/g, firstName);
-}
-
-export function renderEmailHtml(body: string) {
-  const htmlBody = body
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\n/g, "<br/>");
-  return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.6;color:#18181b;max-width:560px;margin:0 auto;padding:24px">${htmlBody}</body></html>`;
-}
-
 export const CAMPAIGN_TEMPLATES = [
   {
     id: "winback",
@@ -68,3 +57,31 @@ Limited to 12 seats. Reply to reserve your spot.
 We look forward to creating something special for you.`,
   },
 ];
+
+export type CampaignSegment = "VIP" | "INACTIVE" | "HIGH_SPENDERS" | "ALL";
+
+export function personalize(text: string, firstName: string) {
+  return text.replace(/\{name\}/g, firstName);
+}
+
+export function renderEmailHtml(body: string) {
+  const htmlBody = body
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br/>");
+  return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.6;color:#18181b;max-width:560px;margin:0 auto;padding:24px">${htmlBody}</body></html>`;
+}
+
+export function getQuickSendTemplate(segment: string) {
+  const match =
+    CAMPAIGN_TEMPLATES.find((t) => t.segment === segment) ??
+    CAMPAIGN_TEMPLATES.find((t) => t.id === "winback");
+  if (!match) throw new Error("No template for segment");
+  return match;
+}
+
+export const QUICK_SEND_LABELS: Record<CampaignSegment, string> = {
+  VIP: "Send VIP thank-you",
+  INACTIVE: "Send win-back email",
+  HIGH_SPENDERS: "Send exclusive invite",
+  ALL: "Email all customers",
+};

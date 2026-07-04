@@ -7,6 +7,7 @@ import { canAccessFeature, getPlanLimits } from "@/lib/plans";
 import {
   CAMPAIGN_TEMPLATES,
   generateCampaignCopy,
+  getQuickSendTemplate,
   getSegmentCustomers,
   getSegmentStats,
   personalize,
@@ -140,10 +141,67 @@ export const POST = withTenant(async (req, ctx) => {
       goal: body.goal || "Increase bookings this week",
       tone: body.tone,
     });
-    if (!copy) {
-      return json({ error: "AI copy generation unavailable" }, 503);
-    }
     return json(copy);
+  }
+
+  if (body.action === "quickSend") {
+    if (!canAccessFeature(ctx.plan, "marketing")) {
+      return json({ error: "Upgrade to Growth plan for marketing campaigns" }, 403);
+    }
+
+    const segment = (body.segment || "INACTIVE") as
+      | "VIP"
+      | "INACTIVE"
+      | "HIGH_SPENDERS"
+      | "ALL";
+    const template = getQuickSendTemplate(segment);
+    const triggerDays = body.triggerDays || 30;
+    const recipients = await getSegmentCustomers(
+      ctx.restaurantId,
+      segment,
+      triggerDays
+    );
+    const reachable = recipients.filter((c) => c.email);
+
+    if (reachable.length === 0) {
+      return json(
+        {
+          error:
+            "No customers with email addresses in this segment. Add emails in CRM first.",
+        },
+        400
+      );
+    }
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        restaurantId: ctx.restaurantId,
+        name: template.name,
+        subject: template.subject,
+        body: template.body,
+        segment,
+        status: "SENT",
+        sentAt: new Date(),
+        recipientCount: reachable.length,
+      },
+    });
+
+    const emailResult = await sendBulkEmails(
+      ctx.restaurantId,
+      recipients,
+      template.subject,
+      template.body,
+      campaign.id
+    );
+
+    return json({
+      campaign,
+      emailsSent: emailResult.sent,
+      emailsSkipped: emailResult.skipped,
+      emailsFailed: emailResult.failed,
+      segment,
+      templateName: template.name,
+    });
   }
 
   if (body.action === "send") {
