@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Bot,
@@ -19,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { prefetchDashboardRoute } from "@/lib/dashboard-prefetch";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,6 +44,11 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+
+  function handlePrefetch(href: string) {
+    prefetchDashboardRoute(queryClient, href);
+  }
 
   return (
     <aside
@@ -86,6 +93,8 @@ export function Sidebar({
               key={item.href}
               href={item.href}
               onClick={onMobileClose}
+              onMouseEnter={() => handlePrefetch(item.href)}
+              onFocus={() => handlePrefetch(item.href)}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 active

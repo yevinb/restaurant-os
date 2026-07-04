@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { subDays, startOfDay, format } from "date-fns";
 
@@ -8,12 +9,12 @@ export async function getAnalyticsOverview(restaurantId: string) {
 
   const [
     reservations,
-    completedReservations,
+    completedStats,
     customers,
     repeatCustomers,
     revenueData,
     prevRevenue,
-    hourlyData,
+    peakHoursRaw,
     topCustomers,
     staffShifts,
     volumeByDay,
@@ -21,13 +22,15 @@ export async function getAnalyticsOverview(restaurantId: string) {
     prisma.reservation.count({
       where: { restaurantId, date: { gte: thirtyDaysAgo } },
     }),
-    prisma.reservation.findMany({
+    prisma.reservation.aggregate({
       where: {
         restaurantId,
         status: "COMPLETED",
         date: { gte: thirtyDaysAgo },
       },
-      select: { date: true, spendAmount: true, startTime: true },
+      _sum: { spendAmount: true },
+      _count: true,
+      _avg: { spendAmount: true },
     }),
     prisma.customer.count({ where: { restaurantId } }),
     prisma.customer.count({
@@ -52,14 +55,17 @@ export async function getAnalyticsOverview(restaurantId: string) {
       },
       _sum: { spendAmount: true },
     }),
-    prisma.reservation.findMany({
-      where: {
-        restaurantId,
-        date: { gte: thirtyDaysAgo },
-        status: { not: "CANCELLED" },
-      },
-      select: { startTime: true },
-    }),
+    prisma.$queryRaw<{ hour: string; count: number }[]>(
+      Prisma.sql`
+        SELECT SUBSTRING("startTime", 1, 2) AS hour, COUNT(*)::int AS count
+        FROM "Reservation"
+        WHERE "restaurantId" = ${restaurantId}
+          AND date >= ${thirtyDaysAgo}
+          AND status <> 'CANCELLED'
+        GROUP BY hour
+        ORDER BY hour
+      `
+    ),
     prisma.customer.findMany({
       where: { restaurantId },
       orderBy: { totalSpend: "desc" },
@@ -88,10 +94,7 @@ export async function getAnalyticsOverview(restaurantId: string) {
     }),
   ]);
 
-  const totalRevenue = completedReservations.reduce(
-    (sum, r) => sum + Number(r.spendAmount || 0),
-    0
-  );
+  const totalRevenue = Number(completedStats._sum.spendAmount || 0);
   const prevTotal = Number(prevRevenue._sum.spendAmount || 0);
   const revenueChange =
     prevTotal > 0
@@ -99,13 +102,14 @@ export async function getAnalyticsOverview(restaurantId: string) {
       : 0;
 
   const revenueOverTime = aggregateByDay(revenueData, thirtyDaysAgo, 30);
-
   const reservationVolume = aggregateVolumeByDay(volumeByDay, 30);
-
   const repeatRate =
     customers > 0 ? Math.round((repeatCustomers / customers) * 100) : 0;
 
-  const peakHours = getPeakHours(hourlyData);
+  const peakHours = peakHoursRaw.map((row) => ({
+    hour: `${row.hour}:00`,
+    count: Number(row.count),
+  }));
 
   const staffPerformance = await getStaffPerformance(
     restaurantId,
@@ -119,10 +123,7 @@ export async function getAnalyticsOverview(restaurantId: string) {
       reservations,
       customers,
       repeatRate,
-      avgSpend:
-        completedReservations.length > 0
-          ? totalRevenue / completedReservations.length
-          : 0,
+      avgSpend: Number(completedStats._avg.spendAmount || 0),
     },
     revenueOverTime,
     reservationVolume,
@@ -174,25 +175,13 @@ function aggregateVolumeByDay(
   }));
 }
 
-function getPeakHours(data: { startTime: string }[]) {
-  const hours: Record<string, number> = {};
-  data.forEach((r) => {
-    const hour = r.startTime.split(":")[0];
-    hours[hour] = (hours[hour] || 0) + 1;
-  });
-  return Object.entries(hours)
-    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-    .map(([hour, count]) => ({
-      hour: `${hour}:00`,
-      count,
-    }));
-}
-
 async function getStaffPerformance(
   restaurantId: string,
   shifts: { userId: string; _count: number }[]
 ) {
   const userIds = shifts.map((s) => s.userId);
+  if (userIds.length === 0) return [];
+
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
     select: { id: true, name: true },

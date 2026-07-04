@@ -19,7 +19,7 @@ export const GET = withTenant(async (_req, ctx) => {
         },
       },
       orderBy: { points: "desc" },
-      take: 100,
+      take: 50,
     }),
     prisma.loyaltyRule.findMany({
       where: { restaurantId: ctx.restaurantId },
@@ -41,7 +41,7 @@ export const GET = withTenant(async (_req, ctx) => {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 30,
+      take: 20,
     }),
   ]);
 

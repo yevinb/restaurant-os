@@ -11,9 +11,21 @@ import { useToast } from "@/components/ui/toast";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { fetchJson } from "@/lib/api-client";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 
 const ROLES = ["SERVER", "HOST", "BARTENDER", "CHEF", "MANAGER"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+type ShiftRow = {
+  id: string;
+  userId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  role: string;
+  notes?: string;
+  user: { id: string; name: string; email: string };
+};
 
 export default function StaffPage() {
   const queryClient = useQueryClient();
@@ -42,10 +54,29 @@ export default function StaffPage() {
 
   const weekStr = format(weekStart, "yyyy-MM-dd");
 
-  const { data, isLoading } = useQuery({
+  const { data: staffData } = useQuery({
+    queryKey: ["team-members"],
+    queryFn: async () => {
+      const res = await fetchJson<{ staff: Array<{ user: { id: string; name: string; email: string } }> }>(
+        "/api/team/members"
+      );
+      if (!res.ok) throw new Error(res.error);
+      return res.data!;
+    },
+    staleTime: 300_000,
+  });
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ["shifts", weekStr],
-    queryFn: () =>
-      fetch(`/api/shifts?weekStart=${weekStr}`).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetchJson<{ shifts: ShiftRow[] }>(
+        `/api/shifts?weekStart=${weekStr}`
+      );
+      if (!res.ok) throw new Error(res.error);
+      return res.data!;
+    },
+    staleTime: 60_000,
+    placeholderData: (previous) => previous,
   });
 
   const createMutation = useMutation({
@@ -111,8 +142,21 @@ export default function StaffPage() {
     }
   }
 
-  const { shifts = [], staff = [] } = data || {};
+  const shifts: ShiftRow[] = data?.shifts ?? [];
+  const staff = staffData?.staff ?? [];
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  if (isLoading && !data) {
+    return <PageSkeleton cards={7} />;
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        {(error as Error).message}
+      </div>
+    );
+  }
 
   function getShiftsForDay(date: Date) {
     const dateStr = format(date, "yyyy-MM-dd");

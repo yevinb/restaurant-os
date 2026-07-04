@@ -1,6 +1,10 @@
-import { Role, SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
+import {
+  Role,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from "@prisma/client";
 import { cookies } from "next/headers";
-import { getServerSession } from "next-auth";
+import { getServerSession, Session } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
 import { getPlanLimits } from "./plans";
@@ -15,6 +19,22 @@ export class TenantError extends Error {
   }
 }
 
+function buildRestaurantFromSession(session: Session, restaurantId: string) {
+  return {
+    id: restaurantId,
+    name: session.user.restaurantName ?? "",
+    slug: "",
+    locale: session.user.locale ?? "en",
+    currency: session.user.currency ?? "GBP",
+    country: session.user.country ?? "GB",
+    organizationId: session.user.organizationId ?? null,
+    subscription: {
+      plan: session.user.plan ?? SubscriptionPlan.STARTER,
+      status: SubscriptionStatus.TRIALING,
+    },
+  };
+}
+
 export async function getSessionContext() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -23,24 +43,53 @@ export async function getSessionContext() {
 
   const cookieStore = await cookies();
   const activeRestaurantId = cookieStore.get("activeRestaurantId")?.value;
+  const defaultRestaurantId = session.user.restaurantId;
 
-  const memberships = await prisma.membership.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    include: {
+  if (!defaultRestaurantId && !activeRestaurantId) {
+    throw new TenantError("No restaurant membership found", 403);
+  }
+
+  const restaurantId = activeRestaurantId ?? defaultRestaurantId!;
+
+  if (
+    !activeRestaurantId ||
+    activeRestaurantId === defaultRestaurantId
+  ) {
+    const plan = session.user.plan ?? SubscriptionPlan.STARTER;
+    return {
+      session,
+      userId: session.user.id,
+      restaurantId,
+      role: session.user.role ?? Role.STAFF,
+      restaurant: buildRestaurantFromSession(session, restaurantId),
+      plan,
+      subscriptionStatus: SubscriptionStatus.TRIALING,
+      limits: getPlanLimits(plan),
+    };
+  }
+
+  const membership = await prisma.membership.findFirst({
+    where: { userId: session.user.id, restaurantId: activeRestaurantId },
+    select: {
+      role: true,
       restaurant: {
-        include: { subscription: true, organization: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          locale: true,
+          currency: true,
+          country: true,
+          organizationId: true,
+          subscription: { select: { plan: true, status: true } },
+        },
       },
     },
   });
 
-  if (memberships.length === 0) {
+  if (!membership) {
     throw new TenantError("No restaurant membership found", 403);
   }
-
-  const membership =
-    memberships.find((m) => m.restaurantId === activeRestaurantId) ??
-    memberships[0];
 
   const plan =
     membership.restaurant.subscription?.plan ?? SubscriptionPlan.STARTER;
@@ -50,18 +99,18 @@ export async function getSessionContext() {
   return {
     session,
     userId: session.user.id,
-    restaurantId: membership.restaurantId,
+    restaurantId: membership.restaurant.id,
     role: membership.role,
-    restaurant: membership.restaurant,
+    restaurant: {
+      ...membership.restaurant,
+      subscription: membership.restaurant.subscription ?? {
+        plan: SubscriptionPlan.STARTER,
+        status: SubscriptionStatus.TRIALING,
+      },
+    },
     plan,
     subscriptionStatus,
     limits: getPlanLimits(plan),
-    memberships: memberships.map((m) => ({
-      id: m.restaurantId,
-      name: m.restaurant.name,
-      slug: m.restaurant.slug,
-      role: m.role,
-    })),
   };
 }
 

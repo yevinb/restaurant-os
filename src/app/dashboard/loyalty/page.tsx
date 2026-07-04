@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-client";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 
 export default function LoyaltyPage() {
   const queryClient = useQueryClient();
@@ -84,12 +85,8 @@ export default function LoyaltyPage() {
 
   const { accounts = [], transactions = [] } = data || {};
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
-      </div>
-    );
+  if (isLoading && !data) {
+    return <PageSkeleton cards={3} />;
   }
 
   if (error) {

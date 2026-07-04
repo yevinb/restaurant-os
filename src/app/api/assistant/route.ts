@@ -1,20 +1,16 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { getAssistantResponse } from "@/lib/openai-assistant";
+import {
+  getAssistantResponse,
+  getActiveAiProvider,
+  type AiProvider,
+} from "@/lib/openai-assistant";
 import { canAccessFeature } from "@/lib/plans";
 import { z } from "zod";
 
 const messageSchema = z.object({
   message: z.string().min(1),
 });
-
-function getAiMode(): "groq" | "openai" | "rules" {
-  const groq = process.env.GROQ_API_KEY;
-  if (groq && !groq.includes("placeholder")) return "groq";
-  const openai = process.env.OPENAI_API_KEY;
-  if (openai && !openai.includes("placeholder")) return "openai";
-  return "rules";
-}
 
 export const GET = withTenant(async (_req, ctx) => {
   if (!canAccessFeature(ctx.plan, "aiAssistant")) {
@@ -30,7 +26,13 @@ export const GET = withTenant(async (_req, ctx) => {
     take: 100,
   });
 
-  return json({ messages, aiMode: getAiMode() });
+  const aiMode = getActiveAiProvider();
+
+  return json({
+    messages,
+    aiMode,
+    aiConfigured: aiMode !== "rules",
+  });
 });
 
 export const POST = withTenant(async (req, ctx) => {
@@ -79,5 +81,19 @@ export const POST = withTenant(async (req, ctx) => {
     },
   });
 
-  return json({ response, source, message: assistantMessage });
+  return json({
+    response,
+    source: source as AiProvider,
+    message: assistantMessage,
+  });
+});
+
+export const DELETE = withTenant(async (_req, ctx) => {
+  await prisma.chatMessage.deleteMany({
+    where: {
+      restaurantId: ctx.restaurantId,
+      userId: ctx.userId,
+    },
+  });
+  return json({ ok: true });
 });

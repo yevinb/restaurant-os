@@ -62,10 +62,23 @@ export const GET = withTenant(async (req, ctx) => {
       prisma.campaign.findMany({
         where: { restaurantId: ctx.restaurantId },
         orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          name: true,
+          subject: true,
+          segment: true,
+          status: true,
+          recipientCount: true,
+          openRate: true,
+          sentAt: true,
+          createdAt: true,
+        },
       }),
       prisma.automationRule.findMany({
         where: { restaurantId: ctx.restaurantId },
         orderBy: { createdAt: "desc" },
+        take: 15,
       }),
       getSegmentStats(ctx.restaurantId),
       Promise.resolve(CAMPAIGN_TEMPLATES),

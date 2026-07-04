@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "@/components/ui/card";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { formatCurrency } from "@/lib/utils";
 
 const AnalyticsCharts = dynamic(
@@ -30,12 +31,8 @@ export default function AnalyticsPage() {
     staleTime: 60_000,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
-      </div>
-    );
+  if (isLoading && !data) {
+    return <PageSkeleton />;
   }
 
   if (error || !data) {

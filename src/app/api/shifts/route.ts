@@ -26,19 +26,13 @@ export const GET = withTenant(async (req, ctx) => {
     where.date = { gte: start, lte: end };
   }
 
-  const [shifts, staff] = await Promise.all([
-    prisma.shift.findMany({
-      where,
-      include: { user: { select: { id: true, name: true, email: true } } },
-      orderBy: [{ date: "asc" }, { startTime: "asc" }],
-    }),
-    prisma.membership.findMany({
-      where: { restaurantId: ctx.restaurantId },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    }),
-  ]);
+  const shifts = await prisma.shift.findMany({
+    where,
+    include: { user: { select: { id: true, name: true, email: true } } },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
 
-  return json({ shifts, staff });
+  return json({ shifts });
 });
 
 export const POST = withTenant(async (req, ctx) => {

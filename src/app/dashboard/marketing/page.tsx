@@ -12,6 +12,7 @@ import { EmailPreview } from "@/components/marketing/email-preview";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-client";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 import {
   Megaphone,
   Zap,
@@ -242,12 +243,8 @@ export default function MarketingPage() {
     toast(`Template "${t.name}" applied`);
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
-      </div>
-    );
+  if (isLoading && !data) {
+    return <PageSkeleton cards={4} />;
   }
 
   if (error) {

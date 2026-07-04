@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
+import { enrichTokenWithMembership } from "./auth-token";
 import { prisma } from "./prisma";
 
 const providers: NextAuthOptions["providers"] = [
@@ -59,31 +60,38 @@ export const authOptions: NextAuthOptions = {
   },
   providers,
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, trigger, session }) {
+      if (user?.id) {
         token.id = user.id;
+        await enrichTokenWithMembership(token, user.id);
+      } else if (token.id && !token.restaurantId) {
+        await enrichTokenWithMembership(token, token.id as string);
+      }
+      if (trigger === "update" && session?.restaurantId && token.id) {
+        await enrichTokenWithMembership(
+          token,
+          token.id as string,
+          session.restaurantId as string
+        );
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
-
-        try {
-          const membership = await prisma.membership.findFirst({
-            where: { userId: token.id as string },
-            orderBy: { createdAt: "asc" },
-            include: { restaurant: true },
-          });
-
-          if (membership) {
-            session.user.restaurantId = membership.restaurantId;
-            session.user.role = membership.role;
-            session.user.restaurantName = membership.restaurant.name;
-          }
-        } catch (error) {
-          console.error("Session callback error:", error);
-        }
+        session.user.restaurantId = token.restaurantId as string | undefined;
+        session.user.role = token.role;
+        session.user.restaurantName = token.restaurantName as
+          | string
+          | undefined;
+        session.user.plan = token.plan;
+        session.user.locale = token.locale as string | undefined;
+        session.user.currency = token.currency as string | undefined;
+        session.user.organizationId = token.organizationId as
+          | string
+          | null
+          | undefined;
+        session.user.country = token.country as string | undefined;
       }
       return session;
     },
