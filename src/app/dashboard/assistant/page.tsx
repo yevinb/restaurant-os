@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { AssistantMessage } from "@/components/assistant-message";
 import { fetchJson } from "@/lib/api-client";
 import { Bot, Send, Sparkles, Trash2, AlertCircle } from "lucide-react";
@@ -24,8 +23,6 @@ const suggestions = [
   "What marketing campaign should I run for slow days?",
   "How do I reduce no-shows and fill empty tables?",
   "Help me design a loyalty program that actually works",
-  "What should my menu pricing strategy be?",
-  "How should I schedule staff for peak hours?",
 ];
 
 const AI_LABELS: Record<AiProvider, string> = {
@@ -33,7 +30,7 @@ const AI_LABELS: Record<AiProvider, string> = {
   openai: "AI · OpenAI",
   gemini: "AI · Gemini",
   anthropic: "AI · Claude",
-  rules: "Smart mode (add API key for full AI)",
+  rules: "Smart mode",
 };
 
 const AI_COLORS: Record<AiProvider, string> = {
@@ -97,26 +94,31 @@ export default function AssistantPage() {
     },
   });
 
-  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
+  function scrollToBottom() {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    el.scrollTop = el.scrollHeight;
   }
 
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    shouldAutoScrollRef.current = distanceFromBottom < 80;
+    shouldAutoScrollRef.current = distanceFromBottom < 100;
   }
 
   useEffect(() => {
-    if (!shouldAutoScrollRef.current) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
 
+  useEffect(() => {
+    if (!shouldAutoScrollRef.current) return;
     const count = messages.length;
     const newMessages = count > prevMessageCountRef.current;
     prevMessageCountRef.current = count;
-
     if (newMessages || sendMutation.isPending) {
       requestAnimationFrame(() => scrollToBottom());
     }
@@ -144,17 +146,29 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col min-h-0 sm:h-[calc(100dvh-8rem)]">
-      <div className="mb-4 shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-zinc-900">AI Assistant</h1>
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${AI_COLORS[aiMode]}`}
-            >
-              <Sparkles className="h-3 w-3" />
-              {AI_LABELS[aiMode]}
-            </span>
+    /*
+     * Fixed viewport chat — breaks out of dashboard padding so the message
+     * list gets a real bounded height and scrolls on mobile.
+     */
+    <div className="fixed inset-x-0 bottom-0 top-14 z-10 flex flex-col bg-zinc-50 lg:left-64 lg:top-0">
+      {/* Header */}
+      <div className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-lg font-bold text-zinc-900 sm:text-xl">
+                AI Assistant
+              </h1>
+              <span
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium sm:text-xs ${AI_COLORS[aiMode]}`}
+              >
+                <Sparkles className="h-3 w-3" />
+                {AI_LABELS[aiMode]}
+              </span>
+            </div>
+            <p className="hidden text-xs text-zinc-500 sm:block">
+              Ask anything about your restaurant — powered by your live data.
+            </p>
           </div>
           {messages.length > 0 && (
             <Button
@@ -166,124 +180,120 @@ export default function AssistantPage() {
                 }
               }}
               loading={clearMutation.isPending}
+              className="shrink-0"
             >
               <Trash2 className="h-4 w-4" />
-              Clear chat
             </Button>
           )}
         </div>
-        <p className="mt-1 text-sm text-zinc-500">
-          Ask anything about your restaurant — operations, marketing, menu, staff,
-          revenue, loyalty, and more. Powered by your live dashboard data.
-        </p>
-      </div>
 
-      {!aiConfigured && (
-        <div className="mb-4 shrink-0 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Enable full AI (free)</p>
-            <p className="mt-1 text-amber-800">
-              Add <strong>GROQ_API_KEY</strong> (groq.com) or{" "}
-              <strong>GEMINI_API_KEY</strong> (aistudio.google.com) in your Render
-              environment variables, then redeploy. This unlocks ChatGPT-level
-              answers on any restaurant question.
+        {!aiConfigured && messages.length === 0 && (
+          <div className="mx-auto mt-2 flex max-w-3xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p>
+              Add <strong>GROQ_API_KEY</strong> in Render for full AI (free at
+              groq.com).
             </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
-            {messages.length === 0 && (
-              <div className="text-center py-8 sm:py-12">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100">
-                  <Bot className="h-7 w-7 text-violet-600" />
-                </div>
-                <p className="mt-4 font-medium text-zinc-900">
-                  Your restaurant AI advisor
-                </p>
-                <p className="mt-2 text-sm text-zinc-500 max-w-md mx-auto">
-                  Ask me anything — I&apos;ll analyze your live data and give you
-                  step-by-step action plans.
-                </p>
-                <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-2xl mx-auto px-2">
-                  {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => sendMessage(s)}
-                      disabled={sendMutation.isPending}
-                      className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 transition-colors text-left"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+      {/* Scrollable messages — flex-1 + min-h-0 is critical */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <div className="mx-auto max-w-3xl space-y-4">
+          {messages.length === 0 && (
+            <div className="py-6 text-center sm:py-10">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100">
+                <Bot className="h-6 w-6 text-violet-600" />
               </div>
-            )}
-            {messages.map((m) => (
+              <p className="mt-3 font-medium text-zinc-900">
+                Your restaurant AI advisor
+              </p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
+                Ask me anything — I&apos;ll analyze your live data and give
+                step-by-step action plans.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => sendMessage(s)}
+                    disabled={sendMutation.isPending}
+                    className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-left text-xs text-zinc-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+            >
               <div
-                key={m.id}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`max-w-[90%] rounded-xl px-4 py-3 sm:max-w-[85%] ${
+                  m.role === "user"
+                    ? "bg-zinc-900 text-white"
+                    : "border border-zinc-200 bg-white text-zinc-900 shadow-sm"
+                }`}
               >
-                <div
-                  className={`max-w-[92%] sm:max-w-[85%] rounded-xl px-4 py-3 ${
-                    m.role === "user"
-                      ? "bg-zinc-900 text-white text-sm"
-                      : "bg-zinc-50 border border-zinc-100 text-zinc-900"
-                  }`}
-                >
-                  {m.role === "user" ? (
-                    <p className="text-sm whitespace-pre-wrap">{m.content}</p>
-                  ) : (
-                    <AssistantMessage content={m.content} />
-                  )}
-                </div>
+                {m.role === "user" ? (
+                  <p className="whitespace-pre-wrap text-sm">{m.content}</p>
+                ) : (
+                  <AssistantMessage content={m.content} />
+                )}
               </div>
-            ))}
-            {sendMutation.isPending && (
-              <div className="flex justify-start">
-                <div className="rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm text-zinc-500">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-                    {aiConfigured
-                      ? "Thinking through your restaurant data…"
-                      : "Building your action plan…"}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          ))}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (input.trim() && !sendMutation.isPending) {
-                sendMessage(input.trim());
-              }
-            }}
-            className="flex shrink-0 gap-2 border-t border-zinc-100 p-3 sm:p-4"
-          >
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask anything about your restaurant…"
-              disabled={sendMutation.isPending}
-              className="flex-1"
-            />
-            <Button type="submit" loading={sendMutation.isPending}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          {sendMutation.isPending && (
+            <div className="flex justify-start">
+              <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+                  {aiConfigured
+                    ? "Thinking through your data…"
+                    : "Building your action plan…"}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Input pinned to bottom */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (input.trim() && !sendMutation.isPending) {
+            sendMessage(input.trim());
+          }
+        }}
+        className="shrink-0 border-t border-zinc-200 bg-white px-4 py-3 sm:px-6"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto flex max-w-3xl gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask anything about your restaurant…"
+            disabled={sendMutation.isPending}
+            className="flex-1"
+          />
+          <Button type="submit" loading={sendMutation.isPending}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
