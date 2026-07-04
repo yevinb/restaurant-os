@@ -180,15 +180,34 @@ export default function SettingsPage() {
       }>;
     })?.memberships || [];
 
-  const bookingUrl =
-    typeof window !== "undefined" && (restaurant as { slug?: string })?.slug
-      ? `${window.location.origin}/book/${(restaurant as { slug: string }).slug}`
-      : "";
+  const slug = (restaurant as { slug?: string } | undefined)?.slug ?? "";
+  const [bookingUrl, setBookingUrl] = useState("");
 
-  const copyBookingLink = () => {
-    if (!bookingUrl) return;
-    navigator.clipboard.writeText(bookingUrl);
-    toast("Booking link copied");
+  useEffect(() => {
+    if (slug) {
+      setBookingUrl(`${window.location.origin}/book/${slug}`);
+    }
+  }, [slug]);
+
+  const copyBookingLink = async () => {
+    if (!bookingUrl) {
+      toast("Booking link not ready yet", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(bookingUrl);
+      toast("Booking link copied — paste it in a new tab to test");
+    } catch {
+      toast("Could not copy — select the link and copy manually", "error");
+    }
+  };
+
+  const openBookingPage = () => {
+    if (!bookingUrl) {
+      toast("Booking link not ready yet", "error");
+      return;
+    }
+    window.open(bookingUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -197,6 +216,46 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-zinc-900">Settings</h1>
         <p className="text-sm text-zinc-500">Restaurant profile and team</p>
       </div>
+
+      <Card className="mb-6 border-zinc-900/10 ring-1 ring-zinc-900/5">
+        <CardHeader>
+          <CardTitle>Online booking link</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-zinc-600">
+            Share this link on your website or social media so guests can book tables
+            directly. Copy it, then paste into a new browser tab to preview.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
+              readOnly
+              value={bookingUrl || (slug ? "Loading link…" : "No booking slug found")}
+              className="flex-1 font-mono text-xs"
+              onFocus={(e) => e.target.select()}
+            />
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={copyBookingLink}
+                disabled={!bookingUrl}
+              >
+                <Copy className="h-4 w-4" />
+                Copy link
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openBookingPage}
+                disabled={!bookingUrl}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open in new tab
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -248,37 +307,6 @@ export default function SettingsPage() {
                 Save changes
               </Button>
             </form>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Online booking</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-zinc-600">
-              Share this link on your website, Google, or social media so guests can
-              book tables directly.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Input
-                readOnly
-                value={bookingUrl}
-                className="flex-1 min-w-[200px] font-mono text-xs"
-              />
-              <Button type="button" variant="outline" onClick={copyBookingLink}>
-                <Copy className="h-4 w-4" />
-              </Button>
-              {bookingUrl && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => window.open(bookingUrl, "_blank")}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
           </CardContent>
         </Card>
 
