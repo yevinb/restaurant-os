@@ -312,12 +312,18 @@ export default function MarketingPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-zinc-900">Marketing</h1>
             <Badge variant={emailConfigured ? "success" : "warning"}>
-              {emailConfigured ? "Email sending on" : "Email log only"}
+              {emailConfigured ? "Email sending on" : "Free mode — log only"}
             </Badge>
           </div>
           <p className="text-sm text-zinc-500">
             AI-powered campaigns, segments, automations & templates
           </p>
+          {!emailConfigured && (
+            <p className="mt-1 text-xs text-zinc-400">
+              No payment needed to test — campaigns save to Email log below. Brevo
+              free tier (300/day) sends real emails when you&apos;re ready.
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowAutomationForm(true)}>

@@ -16,7 +16,7 @@ export const GET = withTenant(async () => {
     from: getEmailFromAddress(),
     hint: getEmailSetupHint(),
     setupSteps: provider === "brevo" ? null : [
-      "1. Sign up free at brevo.com",
+      "1. Sign up free at brevo.com (Free plan — 300 emails/day, no credit card)",
       "2. Senders → Add sender → verify your Gmail (check inbox for link)",
       "3. SMTP & API → Create API key",
       "4. Render Environment: BREVO_API_KEY = your key",

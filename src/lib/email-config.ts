@@ -52,13 +52,13 @@ export function canSendToCustomers() {
 
 export function getEmailSetupHint() {
   if (getBrevoApiKey()) {
-    return "Brevo is active — you can email any customer. Sender must be verified in your Brevo dashboard.";
+    return "Brevo is active (free tier). You can email customers — sender must be verified in Brevo.";
   }
   if (getResendApiKey() && isResendTestSender(getEmailFromAddress())) {
-    return "Resend test mode only emails your Resend signup address. Add BREVO_API_KEY (free at brevo.com) to email customers, or verify a domain in Resend.";
+    return "Resend test mode only emails your signup address. Use Brevo free tier (brevo.com, no credit card, 300 emails/day) to email customers.";
   }
   if (getResendApiKey()) {
     return "Resend is active with your verified domain — you can email customers.";
   }
-  return "Add BREVO_API_KEY (recommended) or RESEND_API_KEY with a verified domain in Render → Environment.";
+  return "Optional: Brevo free tier (300 emails/day, no credit card) in Render → BREVO_API_KEY. Until then, campaigns are saved in Email log only — $0 cost.";
 }
