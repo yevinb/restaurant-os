@@ -17,8 +17,10 @@ function EmailTestPanel() {
     queryFn: async () => {
       const res = await fetchJson<{
         configured: boolean;
+        provider: string | null;
         from: string;
         hint: string;
+        setupSteps: string[] | null;
       }>("/api/email/test");
       if (!res.ok) throw new Error(res.error);
       return res.data!;
@@ -51,13 +53,22 @@ function EmailTestPanel() {
             data?.configured ? "font-medium text-emerald-600" : "font-medium text-amber-600"
           }
         >
-          {data?.configured ? "Resend connected" : "Not configured on server"}
+          {data?.configured
+            ? `Ready — ${data.provider === "brevo" ? "Brevo" : "Resend"}`
+            : "Not ready for customer emails"}
         </span>
       </p>
       {data?.from && (
         <p className="text-xs text-zinc-500">Sending from: {data.from}</p>
       )}
       <p className="text-xs text-zinc-500">{data?.hint}</p>
+      {data?.setupSteps && (
+        <ol className="list-decimal space-y-1 pl-4 text-xs text-zinc-600">
+          {data.setupSteps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      )}
       <Button
         type="button"
         variant="outline"

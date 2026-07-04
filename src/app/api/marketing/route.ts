@@ -30,10 +30,6 @@ const automationSchema = z.object({
   body: z.string().min(1),
 });
 
-function emailStatus() {
-  return isEmailConfigured();
-}
-
 export const GET = withTenant(async (req, ctx) => {
   const { searchParams } = new URL(req.url);
   const preview = searchParams.get("preview");
@@ -82,7 +78,7 @@ export const GET = withTenant(async (req, ctx) => {
     segments,
     templates,
     emailLogs,
-    emailConfigured: emailStatus(),
+    emailConfigured: isEmailConfigured(),
   });
 });
 

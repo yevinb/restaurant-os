@@ -1,15 +1,28 @@
 import { withTenant, json } from "@/lib/api";
 import { sendTransactionalEmail } from "@/lib/email";
-import { getEmailFromAddress, isEmailConfigured } from "@/lib/email-config";
+import {
+  getEmailFromAddress,
+  getEmailProvider,
+  getEmailSetupHint,
+  isEmailConfigured,
+} from "@/lib/email-config";
 import { renderEmailHtml } from "@/lib/marketing-utils";
 
 export const GET = withTenant(async () => {
+  const provider = getEmailProvider();
   return json({
     configured: isEmailConfigured(),
+    provider,
     from: getEmailFromAddress(),
-    hint: isEmailConfigured()
-      ? "With onboarding@resend.dev you can only send to the email you used to sign up for Resend until you verify a domain."
-      : "Add RESEND_API_KEY and EMAIL_FROM in Render → Environment, then redeploy.",
+    hint: getEmailSetupHint(),
+    setupSteps: provider === "brevo" ? null : [
+      "1. Sign up free at brevo.com",
+      "2. Senders → Add sender → verify your Gmail (check inbox for link)",
+      "3. SMTP & API → Create API key",
+      "4. Render Environment: BREVO_API_KEY = your key",
+      "5. Render Environment: EMAIL_FROM = RestaurantOS <your@gmail.com>",
+      "6. Save and redeploy",
+    ],
   });
 });
 
@@ -23,8 +36,8 @@ export const POST = withTenant(async (req, ctx) => {
   if (!isEmailConfigured()) {
     return json(
       {
-        error:
-          "Email not configured. Add RESEND_API_KEY in Render → Environment and redeploy.",
+        error: "Email not configured for customer delivery.",
+        hint: getEmailSetupHint(),
       },
       503
     );
@@ -34,7 +47,7 @@ export const POST = withTenant(async (req, ctx) => {
 
 This is a test email from RestaurantOS for ${ctx.restaurant.name}.
 
-If you received this, email delivery is working correctly.`;
+If you received this, you can email customers (booking confirmations, campaigns, etc.).`;
 
   const result = await sendTransactionalEmail({
     to,
@@ -49,11 +62,11 @@ If you received this, email delivery is working correctly.`;
     return json(
       {
         error: result.error || "Email failed to send",
-        hint: "With onboarding@resend.dev, sends only work to your Resend signup email.",
+        hint: getEmailSetupHint(),
       },
       502
     );
   }
 
-  return json({ success: true, sentTo: to });
+  return json({ success: true, sentTo: to, provider: getEmailProvider() });
 });

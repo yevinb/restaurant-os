@@ -2,9 +2,13 @@ import { Resend } from "resend";
 import { prisma } from "./prisma";
 import { personalize, renderEmailHtml } from "./marketing-utils";
 import {
+  getBrevoApiKey,
   getEmailFromAddress,
+  getEmailProvider,
+  getEmailSetupHint,
   getResendApiKey,
   isEmailConfigured,
+  parseFromAddress,
 } from "./email-config";
 
 export type EmailPayload = {
@@ -17,7 +21,7 @@ export type EmailPayload = {
   campaignId?: string;
 };
 
-export { isEmailConfigured, getEmailFromAddress };
+export { isEmailConfigured, getEmailFromAddress, getEmailSetupHint, getEmailProvider };
 
 function getResend() {
   const key = getResendApiKey();
@@ -25,37 +29,81 @@ function getResend() {
   return new Resend(key);
 }
 
-async function deliver(payload: EmailPayload) {
-  const resend = getResend();
-  const from = getEmailFromAddress();
+async function sendViaBrevo(payload: EmailPayload) {
+  const apiKey = getBrevoApiKey();
+  if (!apiKey) throw new Error("Brevo not configured");
 
-  if (resend) {
-    const { data, error } = await resend.emails.send({
-      from,
-      to: [payload.to],
+  const sender = parseFromAddress(getEmailFromAddress());
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: payload.to, name: payload.toName }],
       subject: payload.subject,
-      html: payload.html,
-    });
-    if (error) {
-      throw new Error(error.message);
-    }
-    if (!data?.id) {
-      throw new Error("Resend did not return a message id");
-    }
+      htmlContent: payload.html,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      code?: string;
+    };
+    throw new Error(
+      err.message ||
+        `Brevo rejected the email (${res.status}). Verify sender ${sender.email} in Brevo → Senders.`
+    );
+  }
+}
+
+async function sendViaResend(payload: EmailPayload) {
+  const resend = getResend();
+  if (!resend) throw new Error("Resend not configured");
+
+  const { data, error } = await resend.emails.send({
+    from: getEmailFromAddress(),
+    to: [payload.to],
+    subject: payload.subject,
+    html: payload.html,
+  });
+
+  if (error) {
+    throw new Error(
+      `${error.message}${getEmailFromAddress().includes("@resend.dev") ? " — Use Brevo (BREVO_API_KEY) or verify a domain in Resend to email customers." : ""}`
+    );
+  }
+  if (!data?.id) {
+    throw new Error("Resend did not return a message id");
+  }
+}
+
+async function deliver(payload: EmailPayload) {
+  const provider = getEmailProvider();
+
+  if (provider === "brevo") {
+    await sendViaBrevo(payload);
+    return "DELIVERED";
+  }
+
+  if (provider === "resend") {
+    await sendViaResend(payload);
     return "DELIVERED";
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "RESEND_API_KEY is not set on the server. Add it in Render → Environment."
-    );
+    throw new Error(getEmailSetupHint());
   }
 
   console.log(`[email] ${payload.to} — ${payload.subject}`);
   return "DELIVERED";
 }
 
-/** Sends email via Resend and records delivery in the database. */
+/** Sends email and records delivery in the database. */
 export async function sendEmail(payload: EmailPayload) {
   let status = "FAILED";
   let errorMessage: string | undefined;
