@@ -68,34 +68,9 @@ export async function getSegmentCustomers(
   }
 }
 
-export async function getSegmentStats(restaurantId: string) {
-  const [vip, inactive30, inactive60, highSpenders, all, withEmail] =
-    await Promise.all([
-      getSegmentCustomers(restaurantId, "VIP"),
-      getSegmentCustomers(restaurantId, "INACTIVE", 30),
-      getSegmentCustomers(restaurantId, "INACTIVE", 60),
-      getSegmentCustomers(restaurantId, "HIGH_SPENDERS"),
-      getSegmentCustomers(restaurantId, "ALL"),
-      prisma.customer.count({
-        where: { restaurantId, email: { not: null } },
-      }),
-    ]);
+import { getSegmentStats } from "./marketing-segments";
 
-  const reachable = (list: { email: string | null }[]) =>
-    list.filter((c) => c.email).length;
-
-  return {
-    VIP: { total: vip.length, reachable: reachable(vip) },
-    INACTIVE: { total: inactive30.length, reachable: reachable(inactive30) },
-    INACTIVE_60: { total: inactive60.length, reachable: reachable(inactive60) },
-    HIGH_SPENDERS: {
-      total: highSpenders.length,
-      reachable: reachable(highSpenders),
-    },
-    ALL: { total: all.length, reachable: reachable(all) },
-    customersWithEmail: withEmail,
-  };
-}
+export { getSegmentStats };
 
 export async function generateCampaignCopy(params: {
   restaurantName: string;

@@ -13,6 +13,9 @@ export async function getRestaurantBySlug(slug: string) {
       address: true,
       phone: true,
       timezone: true,
+      locale: true,
+      currency: true,
+      whatsappNumber: true,
     },
   });
 }

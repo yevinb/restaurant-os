@@ -12,7 +12,6 @@ import { EmailPreview } from "@/components/marketing/email-preview";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-client";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import {
   Megaphone,
   Zap,
@@ -71,16 +70,12 @@ export default function MarketingPage() {
       if (!res.ok) throw new Error(json.error || "Failed to load marketing");
       return json;
     },
+    staleTime: 60_000,
   });
 
-  const { data: segmentPreview } = useQuery({
-    queryKey: ["marketing-preview", form.segment],
-    queryFn: () =>
-      fetch(`/api/marketing?preview=${form.segment}&days=30`).then((r) =>
-        r.json()
-      ),
-    enabled: !error,
-  });
+  const segmentPreview = data?.segments?.[form.segment as keyof typeof data.segments] as
+    | { total: number; reachable: number }
+    | undefined;
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -256,7 +251,11 @@ export default function MarketingPage() {
   }
 
   if (error) {
-    return <UpgradePrompt message={(error as Error).message} />;
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        {(error as Error).message}
+      </div>
+    );
   }
 
   return (
@@ -442,7 +441,7 @@ export default function MarketingPage() {
                 subject={form.subject}
                 body={form.body}
                 sampleName={
-                  segmentPreview?.sample?.[0]?.name?.split(" ")[0] || "Sarah"
+                  "Guest"
                 }
               />
             </CardContent>

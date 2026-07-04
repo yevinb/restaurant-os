@@ -1,5 +1,6 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/tenant";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -22,6 +23,7 @@ export const GET = withTenant(async (req, ctx) => {
 });
 
 export const POST = withTenant(async (req, ctx) => {
+  requireRole(ctx.role, ["OWNER", "MANAGER"]);
   const data = createSchema.parse(await req.json());
 
   const existing = await prisma.table.findFirst({

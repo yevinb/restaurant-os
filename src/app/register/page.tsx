@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { UtensilsCrossed } from "lucide-react";
 
 export default function RegisterPage() {
@@ -14,6 +15,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     restaurantName: "",
+    country: "KW" as "GB" | "KW",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,6 +40,7 @@ export default function RegisterPage() {
           email: form.email.trim().toLowerCase(),
           password: form.password,
           restaurantName: form.restaurantName.trim(),
+          country: form.country,
         }),
       });
 
@@ -107,6 +110,19 @@ export default function RegisterPage() {
                 className="mt-1"
                 required
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-zinc-700">Country</label>
+              <Select
+                value={form.country}
+                onChange={(e) =>
+                  setForm({ ...form, country: e.target.value as "GB" | "KW" })
+                }
+                className="mt-1"
+              >
+                <option value="KW">Kuwait</option>
+                <option value="GB">United Kingdom</option>
+              </Select>
             </div>
             <div>
               <label className="text-sm font-medium text-zinc-700">Email</label>

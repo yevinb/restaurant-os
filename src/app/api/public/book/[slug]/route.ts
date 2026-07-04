@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { addMinutes, format, parse } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/email";
+import { emitWebhook } from "@/lib/integrations";
+import {
+  buildBookingConfirmationMessage,
+  buildWhatsAppLink,
+} from "@/lib/whatsapp";
 import { renderEmailHtml } from "@/lib/marketing-utils";
 import {
   checkSlotAvailable,
@@ -136,20 +141,18 @@ export async function POST(
       },
     });
 
-    const dateLabel = new Date(data.date).toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
+    const dateLabel = new Date(data.date).toLocaleDateString(
+      restaurant.locale === "ar" ? "ar-KW" : "en-GB",
+      { weekday: "long", day: "numeric", month: "long" }
+    );
+    const confirmBody = buildBookingConfirmationMessage({
+      guestName: data.firstName,
+      restaurantName: restaurant.name,
+      dateLabel,
+      startTime: data.startTime,
+      partySize: data.partySize,
+      locale: restaurant.locale,
     });
-    const confirmBody = `Hi ${data.firstName},
-
-Your table at ${restaurant.name} is confirmed.
-
-Date: ${dateLabel}
-Time: ${data.startTime}
-Party size: ${data.partySize}
-
-We look forward to seeing you!`;
 
     await sendTransactionalEmail({
       to: data.email,
@@ -160,6 +163,21 @@ We look forward to seeing you!`;
       restaurantId: restaurant.id,
     });
 
+    await emitWebhook(restaurant.id, "reservation.created", {
+      reservationId: reservation.id,
+      source: "public_booking",
+      partySize: data.partySize,
+      date: data.date,
+      startTime: data.startTime,
+    });
+
+    const whatsappLink =
+      data.phone && restaurant.whatsappNumber
+        ? buildWhatsAppLink(restaurant.whatsappNumber, confirmBody)
+        : data.phone
+          ? buildWhatsAppLink(data.phone, confirmBody)
+          : null;
+
     return NextResponse.json(
       {
         success: true,
@@ -169,6 +187,7 @@ We look forward to seeing you!`;
           startTime: data.startTime,
           partySize: data.partySize,
         },
+        whatsappLink,
       },
       { status: 201 }
     );

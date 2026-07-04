@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { AssistantMessage } from "@/components/assistant-message";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { fetchJson } from "@/lib/api-client";
 import { Bot, Send, Sparkles } from "lucide-react";
 
@@ -39,6 +38,7 @@ export default function AssistantPage() {
       if (!res.ok) throw new Error(json.error || "Failed to load assistant");
       return json as { messages: Message[]; aiMode: "groq" | "openai" | "rules" };
     },
+    staleTime: 30_000,
   });
 
   const messages = data?.messages ?? [];
@@ -64,8 +64,20 @@ export default function AssistantPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [data?.messages, sendMutation.isPending]);
 
+  if (isLoading && !data) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
+      </div>
+    );
+  }
+
   if (error) {
-    return <UpgradePrompt message={(error as Error).message} />;
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        {(error as Error).message}
+      </div>
+    );
   }
 
   const aiLabel =

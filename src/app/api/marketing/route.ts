@@ -72,7 +72,15 @@ export const GET = withTenant(async (req, ctx) => {
       prisma.emailLog.findMany({
         where: { restaurantId: ctx.restaurantId },
         orderBy: { sentAt: "desc" },
-        take: 50,
+        take: 20,
+        select: {
+          id: true,
+          toEmail: true,
+          toName: true,
+          subject: true,
+          status: true,
+          sentAt: true,
+        },
       }),
     ]);
 

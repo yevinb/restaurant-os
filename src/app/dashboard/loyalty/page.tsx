@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { formatDate } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-client";
 
@@ -34,6 +33,7 @@ export default function LoyaltyPage() {
       if (!res.ok) throw new Error(json.error || "Failed to load loyalty");
       return json;
     },
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -93,7 +93,11 @@ export default function LoyaltyPage() {
   }
 
   if (error) {
-    return <UpgradePrompt message={(error as Error).message} />;
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        {(error as Error).message}
+      </div>
+    );
   }
 
   return (

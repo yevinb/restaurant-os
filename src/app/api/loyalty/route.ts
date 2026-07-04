@@ -2,6 +2,7 @@ import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { redeemLoyaltyPoints } from "@/lib/loyalty";
 import { canAccessFeature } from "@/lib/plans";
+import { requireRole } from "@/lib/tenant";
 import { z } from "zod";
 
 export const GET = withTenant(async (_req, ctx) => {
@@ -12,19 +13,35 @@ export const GET = withTenant(async (_req, ctx) => {
   const [accounts, rules, transactions] = await Promise.all([
     prisma.loyaltyAccount.findMany({
       where: { restaurantId: ctx.restaurantId },
-      include: { customer: true },
+      include: {
+        customer: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
       orderBy: { points: "desc" },
+      take: 100,
     }),
     prisma.loyaltyRule.findMany({
       where: { restaurantId: ctx.restaurantId },
     }),
     prisma.loyaltyTransaction.findMany({
       where: { restaurantId: ctx.restaurantId },
-      include: {
-        loyaltyAccount: { include: { customer: true } },
+      select: {
+        id: true,
+        type: true,
+        points: true,
+        description: true,
+        createdAt: true,
+        loyaltyAccount: {
+          select: {
+            customer: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 30,
     }),
   ]);
 
@@ -45,12 +62,32 @@ const updateRuleSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const createRuleSchema = z.object({
+  name: z.string().min(1),
+  pointsPerPound: z.number().min(0),
+  minSpend: z.number().min(0),
+});
+
 export const POST = withTenant(async (req, ctx) => {
   if (!canAccessFeature(ctx.plan, "loyalty")) {
     return json({ error: "Upgrade to Growth plan for loyalty features" }, 403);
   }
 
   const body = await req.json();
+
+  if (body.action === "createRule") {
+    requireRole(ctx.role, ["OWNER", "MANAGER"]);
+    const data = createRuleSchema.parse(body);
+    const rule = await prisma.loyaltyRule.create({
+      data: {
+        restaurantId: ctx.restaurantId,
+        name: data.name,
+        pointsPerPound: data.pointsPerPound,
+        minSpend: data.minSpend,
+      },
+    });
+    return json(rule, 201);
+  }
 
   if (body.action === "redeem") {
     try {
@@ -71,6 +108,7 @@ export const POST = withTenant(async (req, ctx) => {
   }
 
   if (body.action === "updateRule") {
+    requireRole(ctx.role, ["OWNER", "MANAGER"]);
     const data = updateRuleSchema.parse(body);
     const existing = await prisma.loyaltyRule.findFirst({
       where: { id: data.id, restaurantId: ctx.restaurantId },

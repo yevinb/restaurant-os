@@ -8,6 +8,13 @@ const updateSchema = z.object({
   address: z.string().optional(),
   phone: z.string().optional(),
   timezone: z.string().optional(),
+  currency: z.string().optional(),
+  locale: z.enum(["en", "ar"]).optional(),
+  country: z.enum(["GB", "KW"]).optional(),
+  whatsappNumber: z.string().optional(),
+  webhookUrl: z.string().nullable().optional(),
+  webhookSecret: z.string().optional(),
+  posProvider: z.string().optional(),
 });
 
 export const GET = withTenant(async (_req, ctx) => {

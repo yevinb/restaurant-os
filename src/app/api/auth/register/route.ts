@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/email";
 import { renderEmailHtml } from "@/lib/marketing-utils";
+import { getRegionDefaults } from "@/lib/regions";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -10,6 +11,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   restaurantName: z.string().min(2),
+  country: z.enum(["GB", "KW"]).optional().default("GB"),
 });
 
 export async function POST(req: Request) {
@@ -34,19 +36,33 @@ export async function POST(req: Request) {
 
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    const result = await prisma.$transaction(async (tx) => {
-      const restaurant = await tx.restaurant.create({
-        data: {
-          name: data.restaurantName,
-          slug: `${slug}-${Date.now().toString(36)}`,
-        },
-      });
+    const region = getRegionDefaults(data.country ?? "GB");
 
+    const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           name: data.name,
           email: data.email.toLowerCase(),
           passwordHash,
+        },
+      });
+
+      const organization = await tx.organization.create({
+        data: {
+          name: data.restaurantName,
+          ownerId: user.id,
+        },
+      });
+
+      const restaurant = await tx.restaurant.create({
+        data: {
+          name: data.restaurantName,
+          slug: `${slug}-${Date.now().toString(36)}`,
+          timezone: region.timezone,
+          currency: region.currency,
+          locale: region.locale,
+          country: data.country ?? "GB",
+          organizationId: organization.id,
         },
       });
 

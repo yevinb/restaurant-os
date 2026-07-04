@@ -1,6 +1,7 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { assertRestaurantMember } from "@/lib/membership";
+import { requireRole } from "@/lib/tenant";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -13,6 +14,7 @@ const updateSchema = z.object({
 });
 
 export const PATCH = withTenant(async (req, ctx) => {
+  requireRole(ctx.role, ["OWNER", "MANAGER"]);
   const id = new URL(req.url).pathname.split("/").pop()!;
   const body = await req.json();
   const data = updateSchema.parse(body);
@@ -43,6 +45,7 @@ export const PATCH = withTenant(async (req, ctx) => {
 });
 
 export const DELETE = withTenant(async (req, ctx) => {
+  requireRole(ctx.role, ["OWNER", "MANAGER"]);
   const id = new URL(req.url).pathname.split("/").pop()!;
 
   const existing = await prisma.shift.findFirst({

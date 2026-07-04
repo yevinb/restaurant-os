@@ -5,6 +5,7 @@ import {
   assertCustomerInRestaurant,
   assertTableInRestaurant,
 } from "@/lib/validators";
+import { emitWebhook } from "@/lib/integrations";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -90,6 +91,19 @@ export const PATCH = withTenant(async (req, ctx) => {
         customerId: reservation.customerId,
         metadata: { reservationId: reservation.id },
       },
+    });
+
+    await emitWebhook(ctx.restaurantId, "reservation.completed", {
+      reservationId: reservation.id,
+      spend,
+      customerId: reservation.customerId,
+    });
+  }
+
+  if (data.status && data.status !== existing.status) {
+    await emitWebhook(ctx.restaurantId, "reservation.updated", {
+      reservationId: reservation.id,
+      status: data.status,
     });
   }
 

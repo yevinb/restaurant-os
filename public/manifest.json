@@ -1,0 +1,18 @@
+{
+  "name": "RestaurantOS",
+  "short_name": "RestaurantOS",
+  "description": "Restaurant management for dine-in venues",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#18181b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

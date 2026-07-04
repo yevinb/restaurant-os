@@ -9,6 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { fetchJson } from "@/lib/api-client";
 import { Copy, ExternalLink, Mail } from "lucide-react";
+import {
+  IntegrationsPanel,
+  LocationsPanel,
+  TimeSlotsPanel,
+} from "@/components/settings-extras";
 
 function EmailTestPanel() {
   const { toast } = useToast();
@@ -101,6 +106,10 @@ export default function SettingsPage() {
     address: "",
     phone: "",
     timezone: "Europe/London",
+    currency: "GBP",
+    locale: "en",
+    country: "GB",
+    whatsappNumber: "",
   });
 
   const [inviteForm, setInviteForm] = useState({
@@ -144,12 +153,20 @@ export default function SettingsPage() {
         address?: string;
         phone?: string;
         timezone?: string;
+        currency?: string;
+        locale?: string;
+        country?: string;
+        whatsappNumber?: string;
       };
       setForm({
         name: r.name || "",
         address: r.address || "",
         phone: r.phone || "",
         timezone: r.timezone || "Europe/London",
+        currency: r.currency || "GBP",
+        locale: r.locale || "en",
+        country: r.country || "GB",
+        whatsappNumber: r.whatsappNumber || "",
       });
     }
   }, [restaurant]);
@@ -387,6 +404,54 @@ export default function SettingsPage() {
                   onChange={(e) => setForm({ ...form, timezone: e.target.value })}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Country</label>
+                  <Select
+                    className="mt-1"
+                    value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  >
+                    <option value="GB">United Kingdom</option>
+                    <option value="KW">Kuwait</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Language</label>
+                  <Select
+                    className="mt-1"
+                    value={form.locale}
+                    onChange={(e) => setForm({ ...form, locale: e.target.value })}
+                  >
+                    <option value="en">English</option>
+                    <option value="ar">Arabic</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Currency</label>
+                  <Select
+                    className="mt-1"
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  >
+                    <option value="GBP">GBP (£)</option>
+                    <option value="KWD">KWD (KD)</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">WhatsApp number</label>
+                  <Input
+                    className="mt-1"
+                    value={form.whatsappNumber}
+                    onChange={(e) =>
+                      setForm({ ...form, whatsappNumber: e.target.value })
+                    }
+                    placeholder="+965..."
+                  />
+                </div>
+              </div>
               <Button type="submit" loading={updateMutation.isPending}>
                 Save changes
               </Button>
@@ -480,6 +545,8 @@ export default function SettingsPage() {
         </Card>
 
         <div className="space-y-6">
+          <LocationsPanel />
+
           <Card>
             <CardHeader>
               <CardTitle>Invite team member</CardTitle>
@@ -553,6 +620,9 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      <TimeSlotsPanel />
+      <IntegrationsPanel />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Role, SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
@@ -20,19 +21,26 @@ export async function getSessionContext() {
     throw new TenantError("Unauthorized", 401);
   }
 
-  const membership = await prisma.membership.findFirst({
+  const cookieStore = await cookies();
+  const activeRestaurantId = cookieStore.get("activeRestaurantId")?.value;
+
+  const memberships = await prisma.membership.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "asc" },
     include: {
       restaurant: {
-        include: { subscription: true },
+        include: { subscription: true, organization: true },
       },
     },
   });
 
-  if (!membership) {
+  if (memberships.length === 0) {
     throw new TenantError("No restaurant membership found", 403);
   }
+
+  const membership =
+    memberships.find((m) => m.restaurantId === activeRestaurantId) ??
+    memberships[0];
 
   const plan =
     membership.restaurant.subscription?.plan ?? SubscriptionPlan.STARTER;
@@ -48,6 +56,12 @@ export async function getSessionContext() {
     plan,
     subscriptionStatus,
     limits: getPlanLimits(plan),
+    memberships: memberships.map((m) => ({
+      id: m.restaurantId,
+      name: m.restaurant.name,
+      slug: m.restaurant.slug,
+      role: m.role,
+    })),
   };
 }
 

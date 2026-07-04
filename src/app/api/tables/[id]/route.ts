@@ -1,5 +1,6 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/tenant";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -9,6 +10,7 @@ const updateSchema = z.object({
 });
 
 export const PATCH = withTenant(async (req, ctx) => {
+  requireRole(ctx.role, ["OWNER", "MANAGER"]);
   const id = new URL(req.url).pathname.split("/").pop()!;
   const data = updateSchema.parse(await req.json());
 
@@ -39,6 +41,7 @@ export const PATCH = withTenant(async (req, ctx) => {
 });
 
 export const DELETE = withTenant(async (req, ctx) => {
+  requireRole(ctx.role, ["OWNER", "MANAGER"]);
   const id = new URL(req.url).pathname.split("/").pop()!;
 
   const existing = await prisma.table.findFirst({

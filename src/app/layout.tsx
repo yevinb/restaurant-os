@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "RestaurantOS — Cloud Operating System for Restaurants",
   description:
     "Reservations, CRM, loyalty, marketing, analytics, and staff scheduling in one platform.",
+  manifest: "/manifest.json",
+  appleWebApp: { capable: true, title: "RestaurantOS" },
 };
 
 export default function RootLayout({

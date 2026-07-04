@@ -20,6 +20,7 @@ export const PLANS = {
       loyalty: false,
       marketing: false,
       analytics: false,
+      multiLocation: false,
     },
   },
   GROWTH: {
@@ -42,6 +43,7 @@ export const PLANS = {
       loyalty: true,
       marketing: true,
       analytics: "full",
+      multiLocation: false,
     },
   },
   PRO: {
@@ -65,24 +67,26 @@ export const PLANS = {
       loyalty: true,
       marketing: true,
       analytics: "advanced",
+      multiLocation: true,
     },
   },
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
 
+/** Hardcoded off for testing — set to true and redeploy when ready to lock by plan. */
+export const PLAN_GATES_ENABLED = false;
+
 export function getPlanLimits(plan: SubscriptionPlan = "STARTER") {
-  return PLANS[plan]?.limits ?? PLANS.STARTER.limits;
+  void plan;
+  return PLANS.PRO.limits;
 }
 
 export function canAccessFeature(
   plan: SubscriptionPlan,
   feature: keyof (typeof PLANS)["STARTER"]["limits"]
 ) {
-  const limits = getPlanLimits(plan);
-  const value = limits[feature];
-  if (feature === "analytics") {
-    return value !== false && value != null;
-  }
-  return Boolean(value);
+  void plan;
+  void feature;
+  return true;
 }

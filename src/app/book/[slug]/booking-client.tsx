@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { UtensilsCrossed, Calendar, CheckCircle2 } from "lucide-react";
+import { t } from "@/lib/i18n/translations";
 
 type Props = { slug: string };
 
@@ -28,6 +29,7 @@ export default function PublicBookingClient({ slug }: Props) {
     date: string;
     startTime: string;
     partySize: number;
+    whatsappLink?: string | null;
   } | null>(null);
 
   const { data: restaurantData, isLoading: loadingRestaurant } = useQuery({
@@ -64,7 +66,10 @@ export default function PublicBookingClient({ slug }: Props) {
       return data;
     },
     onSuccess: (data) => {
-      setConfirmed(data.reservation);
+      setConfirmed({
+        ...data.reservation,
+        whatsappLink: data.whatsappLink,
+      });
     },
   });
 
@@ -85,29 +90,44 @@ export default function PublicBookingClient({ slug }: Props) {
   }
 
   const restaurant = restaurantData.restaurant;
+  const locale = restaurant.locale || "en";
   const slots = slotsData?.slots || [];
 
   if (confirmed) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-6">
+      <div
+        className="min-h-screen bg-zinc-50 flex items-center justify-center px-6"
+        dir={locale === "ar" ? "rtl" : "ltr"}
+      >
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-            <h1 className="mt-4 text-2xl font-bold text-zinc-900">You&apos;re booked!</h1>
+            <h1 className="mt-4 text-2xl font-bold text-zinc-900">
+              {t(locale, "bookingConfirmed")}
+            </h1>
             <p className="mt-2 text-zinc-600">
               {restaurant.name} · {confirmed.partySize} guests
             </p>
             <p className="mt-1 text-sm text-zinc-500">
-              {new Date(confirmed.date).toLocaleDateString("en-GB", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}{" "}
+              {new Date(confirmed.date).toLocaleDateString(
+                locale === "ar" ? "ar-KW" : "en-GB",
+                { weekday: "long", day: "numeric", month: "long" }
+              )}{" "}
               at {confirmed.startTime}
             </p>
             <p className="mt-4 text-sm text-zinc-500">
               A confirmation email has been sent to {form.email}.
             </p>
+            {confirmed.whatsappLink && (
+              <a
+                href={confirmed.whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                {t(locale, "shareWhatsApp")}
+              </a>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -115,7 +135,10 @@ export default function PublicBookingClient({ slug }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div
+      className="min-h-screen bg-zinc-50"
+      dir={locale === "ar" ? "rtl" : "ltr"}
+    >
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white">
@@ -123,7 +146,7 @@ export default function PublicBookingClient({ slug }: Props) {
           </div>
           <div>
             <p className="font-semibold text-zinc-900">{restaurant.name}</p>
-            <p className="text-xs text-zinc-500">Book a table</p>
+            <p className="text-xs text-zinc-500">{t(locale, "bookTable")}</p>
           </div>
         </div>
       </header>

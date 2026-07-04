@@ -87,9 +87,10 @@ model User {
 
   accounts     Account[]
   sessions     Session[]
-  memberships  Membership[]
-  chatMessages ChatMessage[]
-  shifts       Shift[]
+  memberships          Membership[]
+  chatMessages         ChatMessage[]
+  shifts               Shift[]
+  ownedOrganizations   Organization[] @relation("OrganizationOwner")
 }
 
 model Account {
@@ -127,17 +128,36 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Restaurant {
+model Organization {
   id        String   @id @default(cuid())
   name      String
-  slug      String   @unique
-  address   String?
-  phone     String?
-  timezone  String   @default("Europe/London")
-  currency  String   @default("GBP")
+  ownerId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  owner       User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  restaurants Restaurant[]
+}
+
+model Restaurant {
+  id               String   @id @default(cuid())
+  organizationId   String?
+  name             String
+  slug             String   @unique
+  address          String?
+  phone            String?
+  whatsappNumber   String?
+  timezone         String   @default("Europe/London")
+  currency         String   @default("GBP")
+  locale           String   @default("en")
+  country          String   @default("GB")
+  webhookUrl       String?
+  webhookSecret    String?
+  posProvider      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization        Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   memberships         Membership[]
   subscription        Subscription?
   customers           Customer[]
@@ -153,6 +173,22 @@ model Restaurant {
   chatMessages        ChatMessage[]
   timeSlots           TimeSlot[]
   emailLogs           EmailLog[]
+  integrationEvents   IntegrationEvent[]
+}
+
+model IntegrationEvent {
+  id           String   @id @default(cuid())
+  restaurantId String
+  provider     String
+  eventType    String
+  payload      Json?
+  status       String   @default("received")
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([restaurantId, createdAt])
 }
 
 model Membership {

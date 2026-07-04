@@ -16,6 +16,7 @@ export async function getAnalyticsOverview(restaurantId: string) {
     hourlyData,
     topCustomers,
     staffShifts,
+    volumeByDay,
   ] = await Promise.all([
     prisma.reservation.count({
       where: { restaurantId, date: { gte: thirtyDaysAgo } },
@@ -76,6 +77,15 @@ export async function getAnalyticsOverview(restaurantId: string) {
       where: { restaurantId, date: { gte: thirtyDaysAgo } },
       _count: true,
     }),
+    prisma.reservation.groupBy({
+      by: ["date"],
+      where: {
+        restaurantId,
+        date: { gte: thirtyDaysAgo },
+        status: { not: "CANCELLED" },
+      },
+      _count: true,
+    }),
   ]);
 
   const totalRevenue = completedReservations.reduce(
@@ -90,11 +100,7 @@ export async function getAnalyticsOverview(restaurantId: string) {
 
   const revenueOverTime = aggregateByDay(revenueData, thirtyDaysAgo, 30);
 
-  const reservationVolume = await getReservationVolumeByDay(
-    restaurantId,
-    thirtyDaysAgo,
-    30
-  );
+  const reservationVolume = aggregateVolumeByDay(volumeByDay, 30);
 
   const repeatRate =
     customers > 0 ? Math.round((repeatCustomers / customers) * 100) : 0;
@@ -149,30 +155,19 @@ function aggregateByDay(
   }));
 }
 
-async function getReservationVolumeByDay(
-  restaurantId: string,
-  startDate: Date,
+function aggregateVolumeByDay(
+  data: { date: Date; _count: number }[],
   days: number
 ) {
-  const reservations = await prisma.reservation.findMany({
-    where: {
-      restaurantId,
-      date: { gte: startDate },
-      status: { not: "CANCELLED" },
-    },
-    select: { date: true },
-  });
-
   const map = new Map<string, number>();
   for (let i = 0; i < days; i++) {
     const d = subDays(new Date(), days - 1 - i);
     map.set(format(startOfDay(d), "yyyy-MM-dd"), 0);
   }
-  reservations.forEach((r) => {
-    const key = format(startOfDay(r.date), "yyyy-MM-dd");
-    map.set(key, (map.get(key) || 0) + 1);
+  data.forEach((row) => {
+    const key = format(startOfDay(row.date), "yyyy-MM-dd");
+    map.set(key, row._count);
   });
-
   return Array.from(map.entries()).map(([date, count]) => ({
     date: format(new Date(date), "d MMM"),
     count,
