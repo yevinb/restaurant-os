@@ -1,6 +1,9 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { getMonthlyReservationCount } from "@/lib/reservations";
+import {
+  assertTableInRestaurant,
+} from "@/lib/validators";
 import { z } from "zod";
 
 const createSchema = z
@@ -110,6 +113,10 @@ export const POST = withTenant(async (req, ctx) => {
     where: { id: customerId, restaurantId: ctx.restaurantId },
   });
   if (!existingCustomer) return json({ error: "Customer not found" }, 404);
+
+  if (data.tableId) {
+    await assertTableInRestaurant(ctx.restaurantId, data.tableId);
+  }
 
   const reservation = await prisma.reservation.create({
     data: {

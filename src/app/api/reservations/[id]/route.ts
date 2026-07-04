@@ -1,6 +1,10 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { awardLoyaltyPoints } from "@/lib/loyalty";
+import {
+  assertCustomerInRestaurant,
+  assertTableInRestaurant,
+} from "@/lib/validators";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -38,6 +42,13 @@ export const PATCH = withTenant(async (req, ctx) => {
     where: { id, restaurantId: ctx.restaurantId },
   });
   if (!existing) return json({ error: "Not found" }, 404);
+
+  if (data.customerId) {
+    await assertCustomerInRestaurant(ctx.restaurantId, data.customerId);
+  }
+  if (data.tableId) {
+    await assertTableInRestaurant(ctx.restaurantId, data.tableId);
+  }
 
   const reservation = await prisma.reservation.update({
     where: { id },

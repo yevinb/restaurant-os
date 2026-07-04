@@ -1,8 +1,17 @@
 import { prisma } from "./prisma";
 import { sendBulkEmails } from "./email";
 import { getSegmentCustomers } from "./marketing";
+import { canAccessFeature } from "./plans";
 
 export async function runAutomationsForRestaurant(restaurantId: string) {
+  const subscription = await prisma.subscription.findUnique({
+    where: { restaurantId },
+  });
+  const plan = subscription?.plan ?? "STARTER";
+  if (!canAccessFeature(plan, "marketing")) {
+    return { ran: 0, totalEmailsSent: 0, results: [] };
+  }
+
   const rules = await prisma.automationRule.findMany({
     where: { restaurantId, isActive: true },
   });

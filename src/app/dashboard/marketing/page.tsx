@@ -12,6 +12,7 @@ import { EmailPreview } from "@/components/marketing/email-preview";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-client";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 import {
   Megaphone,
   Zap,
@@ -62,9 +63,14 @@ export default function MarketingPage() {
     body: "Hi {name}, it's been a while! Come back and enjoy 10% off your next visit.",
   });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["marketing"],
-    queryFn: () => fetch("/api/marketing").then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch("/api/marketing");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to load marketing");
+      return json;
+    },
   });
 
   const { data: segmentPreview } = useQuery({
@@ -73,6 +79,7 @@ export default function MarketingPage() {
       fetch(`/api/marketing?preview=${form.segment}&days=30`).then((r) =>
         r.json()
       ),
+    enabled: !error,
   });
 
   const sendMutation = useMutation({
@@ -238,6 +245,18 @@ export default function MarketingPage() {
       segment: t.segment,
     });
     toast(`Template "${t.name}" applied`);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <UpgradePrompt message={(error as Error).message} />;
   }
 
   return (

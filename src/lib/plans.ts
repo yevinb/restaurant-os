@@ -19,7 +19,7 @@ export const PLANS = {
       aiAssistant: false,
       loyalty: false,
       marketing: false,
-      analytics: "basic",
+      analytics: false,
     },
   },
   GROWTH: {

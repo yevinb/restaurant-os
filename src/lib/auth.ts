@@ -72,6 +72,7 @@ export const authOptions: NextAuthOptions = {
         try {
           const membership = await prisma.membership.findFirst({
             where: { userId: token.id as string },
+            orderBy: { createdAt: "asc" },
             include: { restaurant: true },
           });
 

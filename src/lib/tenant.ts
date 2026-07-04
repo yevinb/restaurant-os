@@ -22,6 +22,7 @@ export async function getSessionContext() {
 
   const membership = await prisma.membership.findFirst({
     where: { userId: session.user.id },
+    orderBy: { createdAt: "asc" },
     include: {
       restaurant: {
         include: { subscription: true },

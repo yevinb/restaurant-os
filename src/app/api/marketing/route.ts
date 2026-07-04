@@ -31,6 +31,10 @@ const automationSchema = z.object({
 });
 
 export const GET = withTenant(async (req, ctx) => {
+  if (!canAccessFeature(ctx.plan, "marketing")) {
+    return json({ error: "Upgrade to Growth plan for marketing" }, 403);
+  }
+
   const { searchParams } = new URL(req.url);
   const preview = searchParams.get("preview");
 
@@ -106,6 +110,9 @@ export const POST = withTenant(async (req, ctx) => {
   }
 
   if (body.action === "generateCopy") {
+    if (!canAccessFeature(ctx.plan, "marketing")) {
+      return json({ error: "Upgrade to Growth plan for AI campaign copy" }, 403);
+    }
     const copy = await generateCampaignCopy({
       restaurantName: ctx.restaurant.name,
       segment: body.segment || "INACTIVE",
@@ -173,6 +180,9 @@ export const POST = withTenant(async (req, ctx) => {
   }
 
   if (body.action === "createAutomation") {
+    if (!canAccessFeature(ctx.plan, "marketing")) {
+      return json({ error: "Upgrade to Growth plan for automations" }, 403);
+    }
     const data = automationSchema.parse(body);
     const rule = await prisma.automationRule.create({
       data: {
@@ -189,6 +199,9 @@ export const POST = withTenant(async (req, ctx) => {
   }
 
   if (body.action === "updateAutomation") {
+    if (!canAccessFeature(ctx.plan, "marketing")) {
+      return json({ error: "Upgrade to Growth plan for automations" }, 403);
+    }
     const existing = await prisma.automationRule.findFirst({
       where: { id: body.id, restaurantId: ctx.restaurantId },
     });
@@ -209,6 +222,9 @@ export const POST = withTenant(async (req, ctx) => {
   }
 
   if (body.action === "deleteAutomation") {
+    if (!canAccessFeature(ctx.plan, "marketing")) {
+      return json({ error: "Upgrade to Growth plan for automations" }, 403);
+    }
     const existing = await prisma.automationRule.findFirst({
       where: { id: body.id, restaurantId: ctx.restaurantId },
     });

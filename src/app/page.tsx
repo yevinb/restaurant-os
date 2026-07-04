@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
+import { PLANS } from "@/lib/plans";
 import {
   Calendar,
   BarChart3,
@@ -98,33 +99,29 @@ export default function HomePage() {
           </h2>
           <p className="mt-3 text-zinc-600">From £99/month. No hidden fees.</p>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {[
-              { name: "Starter", price: 99, desc: "Essential tools for small venues" },
-              { name: "Growth", price: 199, desc: "Full CRM, loyalty & marketing", featured: true },
-              { name: "Pro", price: 499, desc: "AI assistant & advanced analytics" },
-            ].map((plan) => (
+            {Object.values(PLANS).map((plan, i) => (
               <div
-                key={plan.name}
+                key={plan.id}
                 className={`rounded-xl border p-8 ${
-                  plan.featured
+                  i === 1
                     ? "border-zinc-900 bg-zinc-900 text-white"
                     : "border-zinc-200 bg-white"
                 }`}
               >
                 <h3 className="text-lg font-semibold">{plan.name}</h3>
-                <p className={`mt-2 text-sm ${plan.featured ? "text-zinc-300" : "text-zinc-500"}`}>
-                  {plan.desc}
+                <p className={`mt-2 text-sm ${i === 1 ? "text-zinc-300" : "text-zinc-500"}`}>
+                  {plan.features[0]}
                 </p>
                 <p className="mt-6 text-4xl font-bold">
                   £{plan.price}
-                  <span className={`text-base font-normal ${plan.featured ? "text-zinc-400" : "text-zinc-500"}`}>
+                  <span className={`text-base font-normal ${i === 1 ? "text-zinc-400" : "text-zinc-500"}`}>
                     /mo
                   </span>
                 </p>
                 <ButtonLink
                   href="/register"
                   className="mt-6 w-full"
-                  variant={plan.featured ? "outline" : "primary"}
+                  variant={i === 1 ? "outline" : "primary"}
                 >
                   Get started
                 </ButtonLink>

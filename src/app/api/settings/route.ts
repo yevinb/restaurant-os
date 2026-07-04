@@ -1,5 +1,6 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/tenant";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -23,6 +24,8 @@ export const GET = withTenant(async (_req, ctx) => {
 });
 
 export const PATCH = withTenant(async (req, ctx) => {
+  requireRole(ctx.role, ["OWNER", "MANAGER"]);
+
   const body = await req.json();
   const data = updateSchema.parse(body);
 
