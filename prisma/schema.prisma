@@ -341,6 +341,7 @@ model EmailLog {
   subject      String
   body         String   @db.Text
   status       String   @default("DELIVERED")
+  errorMessage String?
   sentAt       DateTime @default(now())
 
   restaurant Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)

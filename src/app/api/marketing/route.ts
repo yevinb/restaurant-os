@@ -1,6 +1,7 @@
 import { withTenant, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { sendBulkEmails } from "@/lib/email";
+import { isEmailConfigured } from "@/lib/email-config";
 import { runAutomationsForRestaurant } from "@/lib/automations";
 import { canAccessFeature, getPlanLimits } from "@/lib/plans";
 import {
@@ -29,9 +30,8 @@ const automationSchema = z.object({
   body: z.string().min(1),
 });
 
-function isEmailConfigured() {
-  const key = process.env.RESEND_API_KEY;
-  return Boolean(key && !key.includes("placeholder"));
+function emailStatus() {
+  return isEmailConfigured();
 }
 
 export const GET = withTenant(async (req, ctx) => {
@@ -82,7 +82,7 @@ export const GET = withTenant(async (req, ctx) => {
     segments,
     templates,
     emailLogs,
-    emailConfigured: isEmailConfigured(),
+    emailConfigured: emailStatus(),
   });
 });
 

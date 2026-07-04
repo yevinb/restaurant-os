@@ -1,6 +1,11 @@
 import { Resend } from "resend";
 import { prisma } from "./prisma";
 import { personalize, renderEmailHtml } from "./marketing-utils";
+import {
+  getEmailFromAddress,
+  getResendApiKey,
+  isEmailConfigured,
+} from "./email-config";
 
 export type EmailPayload = {
   to: string;
@@ -12,31 +17,38 @@ export type EmailPayload = {
   campaignId?: string;
 };
 
+export { isEmailConfigured, getEmailFromAddress };
+
 function getResend() {
-  const key = process.env.RESEND_API_KEY;
-  if (!key || key.includes("placeholder")) return null;
+  const key = getResendApiKey();
+  if (!key) return null;
   return new Resend(key);
 }
 
 async function deliver(payload: EmailPayload) {
   const resend = getResend();
-  const from = process.env.EMAIL_FROM || "RestaurantOS <onboarding@resend.dev>";
+  const from = getEmailFromAddress();
 
   if (resend) {
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from,
-      to: payload.to,
+      to: [payload.to],
       subject: payload.subject,
       html: payload.html,
     });
     if (error) {
       throw new Error(error.message);
     }
+    if (!data?.id) {
+      throw new Error("Resend did not return a message id");
+    }
     return "DELIVERED";
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("Email delivery not configured");
+    throw new Error(
+      "RESEND_API_KEY is not set on the server. Add it in Render → Environment."
+    );
   }
 
   console.log(`[email] ${payload.to} — ${payload.subject}`);
@@ -46,12 +58,13 @@ async function deliver(payload: EmailPayload) {
 /** Sends email via Resend and records delivery in the database. */
 export async function sendEmail(payload: EmailPayload) {
   let status = "FAILED";
+  let errorMessage: string | undefined;
 
   try {
     status = await deliver(payload);
   } catch (err) {
-    console.error("Email send failed:", err);
-    status = "FAILED";
+    errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Email send failed:", errorMessage);
   }
 
   await prisma.emailLog.create({
@@ -63,10 +76,11 @@ export async function sendEmail(payload: EmailPayload) {
       subject: payload.subject,
       body: payload.body,
       status,
+      errorMessage,
     },
   });
 
-  return { sent: status === "DELIVERED" };
+  return { sent: status === "DELIVERED", error: errorMessage };
 }
 
 export async function sendTransactionalEmail(
@@ -87,6 +101,7 @@ export async function sendBulkEmails(
   const withEmail = recipients.filter((r) => r.email);
   let sent = 0;
   let failed = 0;
+  const errors: string[] = [];
 
   for (const r of withEmail) {
     const personalizedBody = personalize(body, r.firstName);
@@ -101,8 +116,11 @@ export async function sendBulkEmails(
       campaignId,
     });
     if (result.sent) sent++;
-    else failed++;
+    else {
+      failed++;
+      if (result.error) errors.push(`${r.email}: ${result.error}`);
+    }
   }
 
-  return { sent, failed, skipped: recipients.length - withEmail.length };
+  return { sent, failed, skipped: recipients.length - withEmail.length, errors };
 }

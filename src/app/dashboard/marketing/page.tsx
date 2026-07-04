@@ -553,6 +553,7 @@ export default function MarketingPage() {
                   toEmail: string;
                   subject: string;
                   status: string;
+                  errorMessage?: string;
                   sentAt: string;
                 }) => (
                   <div key={e.id} className="flex items-center justify-between px-6 py-3">
@@ -561,9 +562,16 @@ export default function MarketingPage() {
                       <p className="text-xs text-zinc-500">
                         {e.toEmail} · {e.subject}
                       </p>
+                      {e.errorMessage && (
+                        <p className="mt-1 text-xs text-red-600">{e.errorMessage}</p>
+                      )}
                     </div>
                     <div className="text-right">
-                      <Badge variant="success">{e.status.toLowerCase()}</Badge>
+                      <Badge
+                        variant={e.status === "DELIVERED" ? "success" : "warning"}
+                      >
+                        {e.status.toLowerCase()}
+                      </Badge>
                       <p className="mt-1 text-xs text-zinc-400">
                         {formatDate(e.sentAt)}
                       </p>

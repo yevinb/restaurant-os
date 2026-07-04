@@ -8,7 +8,69 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { fetchJson } from "@/lib/api-client";
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, Mail } from "lucide-react";
+
+function EmailTestPanel() {
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ["email-status"],
+    queryFn: async () => {
+      const res = await fetchJson<{
+        configured: boolean;
+        from: string;
+        hint: string;
+      }>("/api/email/test");
+      if (!res.ok) throw new Error(res.error);
+      return res.data!;
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchJson<{ sentTo?: string; hint?: string }>(
+        "/api/email/test",
+        { method: "POST" }
+      );
+      if (!res.ok) throw new Error(res.error || res.data?.hint);
+      return res.data!;
+    },
+    onSuccess: (d) => toast(`Test email sent to ${d?.sentTo}`),
+    onError: (err: Error) => toast(err.message, "error"),
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-zinc-500">Checking email setup…</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-zinc-600">
+        Status:{" "}
+        <span
+          className={
+            data?.configured ? "font-medium text-emerald-600" : "font-medium text-amber-600"
+          }
+        >
+          {data?.configured ? "Resend connected" : "Not configured on server"}
+        </span>
+      </p>
+      {data?.from && (
+        <p className="text-xs text-zinc-500">Sending from: {data.from}</p>
+      )}
+      <p className="text-xs text-zinc-500">{data?.hint}</p>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => testMutation.mutate()}
+        loading={testMutation.isPending}
+        disabled={!data?.configured}
+      >
+        <Mail className="h-4 w-4" />
+        Send test email to me
+      </Button>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -52,6 +114,17 @@ export default function SettingsPage() {
       }>;
     },
   });
+
+  const slug = (restaurant as { slug?: string } | undefined)?.slug ?? "";
+  const [bookingUrl, setBookingUrl] = useState("");
+
+  useEffect(() => {
+    if (slug) {
+      setBookingUrl(`${window.location.origin}/book/${slug}`);
+    } else {
+      setBookingUrl("");
+    }
+  }, [slug]);
 
   useEffect(() => {
     if (restaurant) {
@@ -180,15 +253,6 @@ export default function SettingsPage() {
       }>;
     })?.memberships || [];
 
-  const slug = (restaurant as { slug?: string } | undefined)?.slug ?? "";
-  const [bookingUrl, setBookingUrl] = useState("");
-
-  useEffect(() => {
-    if (slug) {
-      setBookingUrl(`${window.location.origin}/book/${slug}`);
-    }
-  }, [slug]);
-
   const copyBookingLink = async () => {
     if (!bookingUrl) {
       toast("Booking link not ready yet", "error");
@@ -254,6 +318,15 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Email delivery</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmailTestPanel />
         </CardContent>
       </Card>
 
