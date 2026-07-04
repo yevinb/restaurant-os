@@ -95,12 +95,10 @@ async function deliver(payload: EmailPayload) {
     return "DELIVERED";
   }
 
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(getEmailSetupHint());
-  }
-
-  console.log(`[email] ${payload.to} — ${payload.subject}`);
-  return "DELIVERED";
+  // No provider — log the email so campaigns still work ($0 testing).
+  // Add BREVO_API_KEY (free tier) when ready to deliver to inboxes.
+  console.log(`[email log] ${payload.to} — ${payload.subject}`);
+  return "LOGGED";
 }
 
 /** Sends email and records delivery in the database. */
@@ -128,7 +126,7 @@ export async function sendEmail(payload: EmailPayload) {
     },
   });
 
-  return { sent: status === "DELIVERED", error: errorMessage };
+  return { sent: status === "DELIVERED" || status === "LOGGED", error: errorMessage, status };
 }
 
 export async function sendTransactionalEmail(

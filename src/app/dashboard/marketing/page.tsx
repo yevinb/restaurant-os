@@ -174,12 +174,19 @@ export default function MarketingPage() {
         emailsSent?: number;
         emailsSkipped?: number;
         templateName?: string;
+        logOnly?: boolean;
       };
-      toast(
-        `${d.templateName ?? "Campaign"} sent to ${d.emailsSent ?? 0} customer(s)${
-          d.emailsSkipped ? ` (${d.emailsSkipped} skipped — no email)` : ""
-        }`
-      );
+      if (d.logOnly) {
+        toast(
+          `${d.templateName ?? "Campaign"} saved for ${d.emailsSent ?? 0} customer(s). Add free Brevo to deliver to inboxes.`
+        );
+      } else {
+        toast(
+          `${d.templateName ?? "Campaign"} sent to ${d.emailsSent ?? 0} customer(s)${
+            d.emailsSkipped ? ` (${d.emailsSkipped} skipped — no email)` : ""
+          }`
+        );
+      }
     },
     onError: (err: Error) => toast(err.message, "error"),
     onSettled: () => setQuickSendingSegment(null),
@@ -675,9 +682,15 @@ export default function MarketingPage() {
                     </div>
                     <div className="text-right">
                       <Badge
-                        variant={e.status === "DELIVERED" ? "success" : "warning"}
+                        variant={
+                          e.status === "DELIVERED"
+                            ? "success"
+                            : e.status === "LOGGED"
+                              ? "default"
+                              : "warning"
+                        }
                       >
-                        {e.status.toLowerCase()}
+                        {e.status === "LOGGED" ? "logged" : e.status.toLowerCase()}
                       </Badge>
                       <p className="mt-1 text-xs text-zinc-400">
                         {formatDate(e.sentAt)}

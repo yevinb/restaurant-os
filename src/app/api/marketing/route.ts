@@ -201,6 +201,7 @@ export const POST = withTenant(async (req, ctx) => {
       emailsFailed: emailResult.failed,
       segment,
       templateName: template.name,
+      logOnly: !isEmailConfigured(),
     });
   }
 
@@ -255,6 +256,7 @@ export const POST = withTenant(async (req, ctx) => {
       campaign,
       emailsSent: emailResult.sent,
       emailsSkipped: emailResult.skipped,
+      logOnly: !isEmailConfigured(),
     });
   }
 
